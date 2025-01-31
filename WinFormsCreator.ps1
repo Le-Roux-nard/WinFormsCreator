@@ -607,6 +607,30 @@ $sbGUI = {
         } catch { Update-ErrorLog -ErrorRecord $_ -Message "Exception encountered determining root node object reference." }
     }
 
+    function Get-ControlHierarchy {
+        param(
+            [System.Windows.Forms.Control]$Control
+        )
+        
+        $hierarchyPath = @()
+        [System.Windows.Forms.Control]$currentControl = $Control
+        
+        while ($currentControl -ne $null -and $currentControl.GetType().Name -ne "Form") {
+            $controlInfo = @{
+                Name = $currentControl.Name
+                Type = $currentControl.GetType().Name
+                Text = $currentControl.Text
+                Location = $currentControl.Location
+                Parent = if ($currentControl.Parent) { $currentControl.Parent.Name } else { "None" }
+            }
+            
+            $hierarchyPath += $controlInfo
+            $currentControl = $currentControl.Parent
+        }
+        
+        return $hierarchyPath
+    }
+
     function Move-SButtons {
         param($Object)
         
@@ -623,8 +647,19 @@ $sbGUI = {
                 $Script:sButtons.GetEnumerator().ForEach({ $_.Value.Visible = $true })
                 $Script:snapLines.GetEnumerator().ForEach({ $_.Value.Visible = $false })
                 
-                $newLoc = New-Object System.Drawing.Point($Object.Location.X, $Object.Location.Y)
+                $hierarchy = Get-ControlHierarchy -Control $Object
                 
+                $locationOffset = @{
+                    X=0;
+                    Y=0
+                }
+
+                $hierarchy | ForEach-Object {
+                    $locationOffset.X += $_.Location.X
+                    $locationOffset.Y += $_.Location.Y
+                }
+                
+                $newLoc = New-Object System.Drawing.Point($locationOffset.X, $locationOffset.Y)
                 $InitialLocation = $true
 
             } else {
